@@ -302,10 +302,15 @@ export async function uploadRecording(
       },
     })
 
+    // Process transcription and analysis in background (don't await)
+    processRecordingAsync(recording.id, s3Url).catch((error) => {
+      console.error(`Failed to process recording ${recording.id}:`, error)
+    })
+
     res.status(201).json({
       success: true,
       data: recording,
-      message: 'Recording uploaded successfully',
+      message: 'Recording uploaded successfully. Processing has started.',
     })
   } catch (error) {
     next(error)
@@ -475,5 +480,80 @@ export async function getRecordingsByDateRange(
     })
   } catch (error) {
     next(error)
+  }
+}
+
+/**
+ * Process recording asynchronously: transcription + analysis
+ */
+async function processRecordingAsync(recordingId: string, s3Url: string) {
+  try {
+    console.log(`Starting processing for recording ${recordingId}`)
+
+    // Update status to TRANSCRIBING
+    await prisma.recording.update({
+      where: { id: recordingId },
+      data: { status: 'TRANSCRIBING' },
+    })
+
+    // Import OpenAI
+    const OpenAI = (await import('openai')).default
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    })
+
+    // Download audio from S3 and transcribe with Whisper
+    const response = await fetch(s3Url)
+    const audioBuffer = await response.arrayBuffer()
+    const audioFile = new File([audioBuffer], 'audio.mp3', { type: 'audio/mpeg' })
+
+    const transcription = await openai.audio.transcriptions.create({
+      file: audioFile,
+      model: 'whisper-1',
+      response_format: 'verbose_json',
+      timestamp_granularities: ['word', 'segment'],
+    })
+
+    // Save transcription to database
+    await prisma.transcription.create({
+      data: {
+        recordingId,
+        text: transcription.text,
+        confidence: 0.95, // Whisper doesn't provide confidence, using default
+        language: transcription.language || 'en',
+        speakerSegments: transcription.segments || [] as any,
+      },
+    })
+
+    console.log(`Transcription completed for recording ${recordingId}`)
+
+    // Update status to ANALYZING
+    await prisma.recording.update({
+      where: { id: recordingId },
+      data: { status: 'ANALYZING' },
+    })
+
+    // Import analysis service
+    const { analyzeConversation } = await import('../services/analysis.service.js')
+
+    // Run AI analysis
+    await analyzeConversation(recordingId)
+
+    console.log(`Analysis completed for recording ${recordingId}`)
+
+    // Update status to COMPLETED
+    await prisma.recording.update({
+      where: { id: recordingId },
+      data: { status: 'COMPLETED' },
+    })
+
+  } catch (error) {
+    console.error(`Error processing recording ${recordingId}:`, error)
+
+    // Update status to FAILED
+    await prisma.recording.update({
+      where: { id: recordingId },
+      data: { status: 'FAILED' },
+    }).catch(err => console.error('Failed to update status to FAILED:', err))
   }
 }
