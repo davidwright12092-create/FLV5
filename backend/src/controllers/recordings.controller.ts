@@ -505,14 +505,15 @@ async function processRecordingAsync(recordingId: string, s3Url: string) {
     // Download audio from S3 and transcribe with Whisper
     const response = await fetch(s3Url)
     const audioBuffer = await response.arrayBuffer()
-    const audioFile = new File([audioBuffer], 'audio.mp3', { type: 'audio/mpeg' })
+    const audioBlob = new Blob([audioBuffer], { type: 'audio/mpeg' })
+    const audioFile = new File([audioBlob], 'audio.mp3', { type: 'audio/mpeg' })
 
     const transcription = await openai.audio.transcriptions.create({
-      file: audioFile,
+      file: audioFile as any,
       model: 'whisper-1',
       response_format: 'verbose_json',
       timestamp_granularities: ['word', 'segment'],
-    })
+    } as any)
 
     // Save transcription to database
     await prisma.transcription.create({
@@ -534,10 +535,10 @@ async function processRecordingAsync(recordingId: string, s3Url: string) {
     })
 
     // Import analysis service
-    const { analyzeConversation } = await import('../services/analysis.service.js')
+    const { analyzeRecording } = await import('../services/analysis.service.js')
 
     // Run AI analysis
-    await analyzeConversation(recordingId)
+    await analyzeRecording(recordingId)
 
     console.log(`Analysis completed for recording ${recordingId}`)
 
