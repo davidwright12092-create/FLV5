@@ -87,14 +87,15 @@ Make it responsive and include placeholder data for now.
 
 #### Prompt 7: Dashboard Components
 ```
-Create reusable dashboard components:
+Create the main dashboard for FieldLink v5:
 
-1. MetricsCard component for displaying key statistics
-2. RecentActivity component for showing recent actions
-3. PerformanceChart component using Recharts
-4. QuickActions component with action buttons
+1. Overview metrics cards (Total Recordings, Conversion Rate, Customer Satisfaction, Revenue Impact)
+2. Recent recordings list with status and quick actions
+3. Performance chart showing trends over time
+4. Quick actions section (Start Recording, View Analytics, Manage Team)
+5. Recent activity feed
 
-Each component should be well-documented and reusable.
+Make it responsive and include placeholder data for now.
 ```
 
 ### Phase 4: Recording Features (Week 4)
