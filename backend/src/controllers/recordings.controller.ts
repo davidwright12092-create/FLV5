@@ -302,15 +302,19 @@ export async function uploadRecording(
       },
     })
 
-    // Process transcription and analysis in background (don't await)
-    processRecordingAsync(recording.id, s3Url).catch((error) => {
-      console.error(`Failed to process recording ${recording.id}:`, error)
-    })
+    // Process transcription and analysis in background (only in production with DB)
+    if (process.env.NODE_ENV === 'production') {
+      processRecordingAsync(recording.id, s3Url).catch((error) => {
+        console.error(`Failed to process recording ${recording.id}:`, error)
+      })
+    }
 
     res.status(201).json({
       success: true,
       data: recording,
-      message: 'Recording uploaded successfully. Processing has started.',
+      message: process.env.NODE_ENV === 'production'
+        ? 'Recording uploaded successfully. Processing has started.'
+        : 'Recording uploaded successfully (processing disabled in development).',
     })
   } catch (error) {
     next(error)
