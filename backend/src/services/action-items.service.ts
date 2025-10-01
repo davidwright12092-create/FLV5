@@ -1090,7 +1090,7 @@ async function saveActionItemsToDatabase(
             overdueRisk: analysis.overdueRisk,
             completionRate: analysis.completionRate,
           },
-        },
+        } as any,
       },
     })
   } catch (error) {

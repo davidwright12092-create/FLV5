@@ -168,7 +168,7 @@ async function getCachedTemplate(templateId: string): Promise<ProcessTemplate> {
     id: template.id,
     name: template.name,
     description: template.description || undefined,
-    steps: template.steps as ProcessStep[],
+    steps: template.steps as any as ProcessStep[],
     organizationId: template.organizationId,
   }
 
