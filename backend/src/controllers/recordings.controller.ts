@@ -513,16 +513,16 @@ async function processRecordingAsync(recordingId: string, s3Url: string) {
       model: 'whisper-1',
       response_format: 'verbose_json',
       timestamp_granularities: ['word', 'segment'],
-    } as any)
+    } as any) as any
 
     // Save transcription to database
     await prisma.transcription.create({
       data: {
         recordingId,
-        text: transcription.text,
+        text: transcription.text || '',
         confidence: 0.95, // Whisper doesn't provide confidence, using default
-        language: transcription.language || 'en',
-        speakerSegments: transcription.segments || [] as any,
+        language: (transcription.language || 'en') as string,
+        speakerSegments: (transcription.segments || []) as any,
       },
     })
 
