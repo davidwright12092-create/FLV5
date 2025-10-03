@@ -15,6 +15,7 @@ import ResetPasswordPage from './pages/auth/ResetPasswordPage'
 import DashboardPage from './pages/dashboard/DashboardPage'
 import ComingSoonPage from './pages/ComingSoonPage'
 import AnalyticsPage from './pages/AnalyticsPage'
+import CalendarPage from './pages/CalendarPage'
 
 // Recording Pages
 import RecordingsPage from './pages/recording/RecordingsPage'
@@ -143,7 +144,7 @@ function App() {
             path="/calendar"
             element={
               <ProtectedRoute>
-                <ComingSoonPage title="Calendar" description="Schedule and view your upcoming appointments." />
+                <CalendarPage />
               </ProtectedRoute>
             }
           />

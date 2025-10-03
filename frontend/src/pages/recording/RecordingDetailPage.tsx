@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import {
   Play,
@@ -33,9 +33,14 @@ import {
 } from 'lucide-react'
 import { PageLayout } from '../../components/layout'
 import RecordingPlayer from '../../components/recording/RecordingPlayer'
+import ConversationView, {
+  ConversationSegment,
+} from '../../components/recording/ConversationView'
+import AnalyticsSidebar from '../../components/recording/AnalyticsSidebar'
 import Card, { CardHeader, CardBody } from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
 import toast from 'react-hot-toast'
+import { useRecording } from '../../hooks/useRecordings'
 
 // TypeScript Interfaces
 interface Recording {
@@ -118,6 +123,82 @@ const MOCK_RECORDING: Recording = {
     participants: ['Inspector Sarah Chen', 'Foreman Mike Torres'],
   },
 }
+
+// Mock conversation segments for the conversation view
+const MOCK_CONVERSATION: ConversationSegment[] = [
+  {
+    id: '1',
+    startTime: 0,
+    endTime: 4.5,
+    text: "Welcome to today's field inspection. We're here at the construction site to review progress on the foundation work.",
+    speaker: 'Inspector Sarah Chen',
+    speakerRole: 'technician',
+    confidence: 0.95,
+  },
+  {
+    id: '2',
+    startTime: 4.5,
+    endTime: 9.2,
+    text: "Thank you for meeting with us. As you can see, we've completed the excavation and are ready to begin pouring concrete.",
+    speaker: 'Foreman Mike Torres',
+    speakerRole: 'customer',
+    confidence: 0.92,
+  },
+  {
+    id: '3',
+    startTime: 9.2,
+    endTime: 14.8,
+    text: 'Excellent. I need to verify the rebar placement meets specifications. Can you walk me through the grid layout?',
+    speaker: 'Inspector Sarah Chen',
+    speakerRole: 'technician',
+    confidence: 0.94,
+  },
+  {
+    id: '4',
+    startTime: 14.8,
+    endTime: 22.1,
+    text: "Absolutely. We're using number five rebar with twelve-inch spacing in both directions. The vertical bars are tied at all intersections per the engineering drawings.",
+    speaker: 'Foreman Mike Torres',
+    speakerRole: 'customer',
+    confidence: 0.91,
+  },
+  {
+    id: '5',
+    startTime: 22.1,
+    endTime: 27.3,
+    text: "Good. I'll need to take measurements and photos for documentation. Have you completed the pre-pour checklist?",
+    speaker: 'Inspector Sarah Chen',
+    speakerRole: 'technician',
+    confidence: 0.96,
+  },
+  {
+    id: '6',
+    startTime: 27.3,
+    endTime: 33.5,
+    text: 'Yes, all items are checked off. The forms are secure, rebar is properly positioned, and we have the concrete delivery scheduled for tomorrow morning.',
+    speaker: 'Foreman Mike Torres',
+    speakerRole: 'customer',
+    confidence: 0.93,
+  },
+  {
+    id: '7',
+    startTime: 33.5,
+    endTime: 38.9,
+    text: "Perfect. I'm approving this phase. Make sure to notify me before the concrete pour begins so I can be present for the inspection.",
+    speaker: 'Inspector Sarah Chen',
+    speakerRole: 'technician',
+    confidence: 0.97,
+  },
+  {
+    id: '8',
+    startTime: 38.9,
+    endTime: 42.0,
+    text: "Will do. We'll give you at least two hours notice. Thanks for your time today.",
+    speaker: 'Foreman Mike Torres',
+    speakerRole: 'customer',
+    confidence: 0.94,
+  },
+]
 
 const MOCK_ANALYSIS: AnalysisData = {
   overallScore: 87,
@@ -344,16 +425,142 @@ const CircularProgress = ({
 export default function RecordingDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const [activeTab, setActiveTab] = useState<
-    'overview' | 'analysis' | 'transcript' | 'coaching' | 'activity'
-  >('overview')
-  const [isLoading, setIsLoading] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
+  const [activeTab, setActiveTab] = useState<'conversation' | 'analysis' | 'timeline'>(
+    'conversation'
+  )
+  const [currentTime, setCurrentTime] = useState(0)
+  const audioRef = useRef<HTMLAudioElement>(null)
 
-  // Simulate loading
-  // In real app, fetch data based on id
-  const recording = MOCK_RECORDING
-  const analysis = MOCK_ANALYSIS
+  // Fetch recording from API
+  const { data: recordingResponse, isLoading, error } = useRecording(id!)
+  const backendRecording = recordingResponse?.data
+
+  if (isLoading) {
+    return (
+      <PageLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-cyan mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading recording...</p>
+          </div>
+        </div>
+      </PageLayout>
+    )
+  }
+
+  if (error || !backendRecording) {
+    return (
+      <PageLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <AlertCircle className="w-12 h-12 text-error-600 mx-auto mb-4" />
+            <p className="text-gray-900 font-semibold">Recording not found</p>
+            <Button variant="outline" onClick={() => navigate('/recordings')} className="mt-4">
+              Back to Recordings
+            </Button>
+          </div>
+        </div>
+      </PageLayout>
+    )
+  }
+
+  // Parse speaker mapping and formatted transcript
+  const speakerMapping = backendRecording.speakerMapping
+    ? JSON.parse(backendRecording.speakerMapping)
+    : {}
+
+  const formattedTranscript = backendRecording.formattedTranscript || backendRecording.transcript || ''
+
+  // Parse action items
+  const actionItems = backendRecording.actionItems
+    ? JSON.parse(backendRecording.actionItems)
+    : []
+
+  // Parse key topics
+  const keyTopics = backendRecording.keyTopics
+    ? JSON.parse(backendRecording.keyTopics)
+    : []
+
+  // Create conversation segments from formatted transcript
+  const conversation: ConversationSegment[] = formattedTranscript
+    .split('\n')
+    .filter((line: string) => line.trim())
+    .map((line: string, index: number) => {
+      // More flexible regex to handle various formats
+      const match = line.match(/^(Technician|Customer|Speaker \d+):\s*(.+)/i)
+      if (match) {
+        const [, speakerLabel, text] = match
+        // Normalize speaker label
+        let speaker: 'Technician' | 'Customer' = 'Technician'
+        if (speakerLabel.toLowerCase().includes('customer')) {
+          speaker = 'Customer'
+        } else if (speakerLabel.toLowerCase().includes('technician')) {
+          speaker = 'Technician'
+        } else {
+          // For "Speaker 1/2", alternate based on number
+          const speakerNum = parseInt(speakerLabel.match(/\d+/)?.[0] || '1')
+          speaker = speakerNum === 1 ? 'Technician' : 'Customer'
+        }
+
+        // Extract confidence from speaker mapping if available
+        let confidence = 0.9
+        if (speakerMapping[speakerLabel]) {
+          confidence = speakerMapping[speakerLabel].confidence
+        }
+
+        return {
+          id: `segment-${index}`,
+          speaker,
+          text: text.trim(),
+          timestamp: index * 5, // More reasonable default
+          confidence
+        }
+      }
+      // Fallback: treat non-matching lines as continuation of previous speaker
+      return null
+    })
+    .filter((seg): seg is ConversationSegment => seg !== null)
+
+  // Map backend data to frontend recording structure
+  const recording = {
+    id: backendRecording.id,
+    title: backendRecording.title,
+    audioUrl: `/api/recordings/${backendRecording.id}/audio`,
+    duration: backendRecording.duration || 0,
+    createdAt: backendRecording.createdAt,
+    customer: {
+      id: backendRecording.user?.id || '',
+      name: backendRecording.user ? `${backendRecording.user.firstName} ${backendRecording.user.lastName}` : 'Unknown',
+      company: 'N/A'
+    },
+    status: backendRecording.status.toLowerCase() as 'completed' | 'processing' | 'failed',
+    category: 'Service Call',
+    tags: keyTopics,
+    metadata: {}
+  }
+
+  // Map backend analysis to frontend structure
+  const analysis = {
+    overallScore: 85,
+    summary: backendRecording.summary || 'No summary available',
+    keyInsights: keyTopics,
+    actionItems: actionItems.map((item: any) => item.title || item),
+    sentiment: {
+      positive: backendRecording.sentiment === 'positive' ? 80 : 20,
+      neutral: backendRecording.sentiment === 'neutral' ? 80 : 20,
+      negative: backendRecording.sentiment === 'negative' ? 80 : 20
+    },
+    topics: keyTopics,
+    questionsAsked: 0,
+    questionsAnswered: 0,
+    processAdherence: {
+      score: 85,
+      strengths: ['Active listening', 'Clear communication'],
+      improvementAreas: ['Follow-up scheduling']
+    },
+    coachingRecommendations: [],
+    trainingResources: []
+  }
 
   const handleDownload = () => {
     toast.success('Download started')
@@ -437,12 +644,33 @@ export default function RecordingDetailPage() {
   }
 
   const tabs = [
-    { id: 'overview', label: 'Overview', icon: Play },
+    { id: 'conversation', label: 'Conversation', icon: MessageSquare },
     { id: 'analysis', label: 'Analysis', icon: BarChart3 },
-    { id: 'transcript', label: 'Transcript', icon: FileText },
-    { id: 'coaching', label: 'Coaching', icon: Award },
-    { id: 'activity', label: 'Activity', icon: Activity },
+    { id: 'timeline', label: 'Timeline', icon: Activity },
   ] as const
+
+  // Handle jumping to a specific time in the conversation
+  const handleJumpToTime = (time: number) => {
+    const audio = audioRef.current
+    if (audio) {
+      audio.currentTime = time
+      audio.play()
+    }
+  }
+
+  // Handle exporting transcript
+  const handleExportTranscript = () => {
+    toast.success('Transcript export started')
+    // Implement export logic
+  }
+
+  // Prepare analytics data for sidebar
+  const analyticsData = {
+    sentiment: analysis.sentiment,
+    summary: analysis.summary,
+    topics: analysis.topics,
+    actionItems: analysis.actionItems,
+  }
 
   const getTimelineIcon = (type: TimelineEvent['type']) => {
     switch (type) {
@@ -564,96 +792,60 @@ export default function RecordingDetailPage() {
           </div>
         </Card>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Tabs */}
-            <Card variant="elevated" padding="none" className="overflow-hidden">
-              <div className="flex overflow-x-auto bg-gray-50 border-b border-gray-200">
-                {tabs.map((tab) => {
-                  const Icon = tab.icon
-                  return (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id)}
-                      className={`flex items-center gap-2 px-6 py-4 font-medium transition-all whitespace-nowrap ${
-                        activeTab === tab.id
-                          ? 'bg-white text-brand-blue border-b-2 border-brand-blue'
-                          : 'text-gray-600 hover:bg-white hover:text-gray-900'
-                      }`}
-                    >
-                      <Icon size={18} />
-                      {tab.label}
-                    </button>
-                  )
-                })}
+        {/* Tabs */}
+        <Card variant="elevated" padding="none" className="overflow-hidden">
+          <div className="flex overflow-x-auto bg-gray-50 border-b border-gray-200">
+            {tabs.map((tab) => {
+              const Icon = tab.icon
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center gap-2 px-6 py-4 font-medium transition-all whitespace-nowrap ${
+                    activeTab === tab.id
+                      ? 'bg-white text-brand-blue border-b-2 border-brand-blue'
+                      : 'text-gray-600 hover:bg-white hover:text-gray-900'
+                  }`}
+                >
+                  <Icon size={18} />
+                  {tab.label}
+                </button>
+              )
+            })}
+          </div>
+        </Card>
+
+        {/* Tab Content */}
+        <div className={activeTab === 'conversation' ? 'grid grid-cols-1 lg:grid-cols-3 gap-6' : ''}>
+          {/* Main Content Area */}
+          <div className={activeTab === 'conversation' ? 'lg:col-span-2 space-y-6' : 'space-y-6'}>
+            {/* Conversation Tab */}
+            {activeTab === 'conversation' && (
+              <div className="space-y-6">
+                {/* Audio Player */}
+                <Card variant="elevated" padding="none" className="overflow-hidden">
+                  <audio
+                    ref={audioRef}
+                    src={recording.audioUrl || '/demo-audio.mp3'}
+                    onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
+                    className="w-full"
+                    controls
+                  />
+                </Card>
+
+                {/* Conversation View */}
+                <ConversationView
+                  segments={conversation}
+                  currentTime={currentTime}
+                  onSegmentClick={handleJumpToTime}
+                  onExport={handleExportTranscript}
+                />
               </div>
+            )}
 
-              <div className="p-6">
-                {/* Overview Tab */}
-                {activeTab === 'overview' && (
-                  <div className="space-y-6">
-                    <RecordingPlayer
-                      recording={recording}
-                      onShare={handleShare}
-                      onDownload={handleDownload}
-                    />
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {/* Metadata */}
-                      <Card variant="bordered">
-                        <CardHeader title="Recording Details" />
-                        <CardBody>
-                          <div className="space-y-3">
-                            <div className="flex justify-between">
-                              <span className="text-gray-600">Duration</span>
-                              <span className="font-medium text-gray-900">
-                                {formatDuration(recording.duration)}
-                              </span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-gray-600">Customer</span>
-                              <span className="font-medium text-gray-900">
-                                {recording.customer.name}
-                              </span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-gray-600">Company</span>
-                              <span className="font-medium text-gray-900">
-                                {recording.customer.company}
-                              </span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-gray-600">Category</span>
-                              <Badge variant="info">{recording.category}</Badge>
-                            </div>
-                          </div>
-                        </CardBody>
-                      </Card>
-
-                      {/* Overall Score */}
-                      <Card variant="bordered">
-                        <CardHeader title="Overall Score" />
-                        <CardBody>
-                          <div className="flex flex-col items-center justify-center py-4">
-                            <CircularProgress value={analysis.overallScore} />
-                            <p className="mt-4 text-center text-sm text-gray-600">
-                              {analysis.overallScore >= 80 && 'Excellent performance'}
-                              {analysis.overallScore >= 60 &&
-                                analysis.overallScore < 80 &&
-                                'Good performance'}
-                              {analysis.overallScore < 60 && 'Needs improvement'}
-                            </p>
-                          </div>
-                        </CardBody>
-                      </Card>
-                    </div>
-                  </div>
-                )}
-
-                {/* Analysis Tab */}
-                {activeTab === 'analysis' && (
-                  <div className="space-y-6">
+            {/* Analysis Tab */}
+            {activeTab === 'analysis' && (
+              <div className="space-y-6">
                     {/* AI Summary */}
                     <Card variant="bordered">
                       <CardHeader title="AI-Generated Summary" />
@@ -801,154 +993,9 @@ export default function RecordingDetailPage() {
                   </div>
                 )}
 
-                {/* Transcript Tab */}
-                {activeTab === 'transcript' && (
-                  <div className="space-y-4">
-                    {/* Search Bar */}
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                      <input
-                        type="text"
-                        placeholder="Search transcript..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-blue focus:border-transparent"
-                      />
-                    </div>
-
-                    <div className="flex justify-between items-center">
-                      <p className="text-sm text-gray-600">
-                        Full transcript with speaker identification
-                      </p>
-                      <Button variant="outline" size="sm">
-                        <Download size={16} />
-                        Export Transcript
-                      </Button>
-                    </div>
-
-                    <div className="bg-gray-50 border border-gray-200 rounded-xl p-6 space-y-4 max-h-[600px] overflow-y-auto">
-                      {/* Transcript content would be rendered from RecordingPlayer transcript data */}
-                      <p className="text-gray-600">
-                        Full transcript is displayed in the RecordingPlayer component in the
-                        Overview tab. This section can show an enhanced, searchable version with
-                        additional features.
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Coaching Tab */}
-                {activeTab === 'coaching' && (
-                  <div className="space-y-6">
-                    {/* Process Adherence Score */}
-                    <Card variant="bordered">
-                      <CardHeader title="Process Adherence Score" />
-                      <CardBody>
-                        <div className="flex items-center justify-center py-4">
-                          <CircularProgress
-                            value={analysis.processAdherence.score}
-                            color="brand-purple"
-                          />
-                        </div>
-                      </CardBody>
-                    </Card>
-
-                    {/* Strengths */}
-                    <Card variant="bordered">
-                      <CardHeader title="Strengths" />
-                      <CardBody>
-                        <div className="space-y-3">
-                          {analysis.processAdherence.strengths.map((strength, idx) => (
-                            <div key={idx} className="flex gap-3">
-                              <CheckCircle2 className="w-5 h-5 text-success-600 flex-shrink-0 mt-0.5" />
-                              <p className="text-gray-700">{strength}</p>
-                            </div>
-                          ))}
-                        </div>
-                      </CardBody>
-                    </Card>
-
-                    {/* Improvement Areas */}
-                    <Card variant="bordered">
-                      <CardHeader title="Areas for Improvement" />
-                      <CardBody>
-                        <div className="space-y-3">
-                          {analysis.processAdherence.improvementAreas.map((area, idx) => (
-                            <div key={idx} className="flex gap-3">
-                              <TrendingUp className="w-5 h-5 text-warning-600 flex-shrink-0 mt-0.5" />
-                              <p className="text-gray-700">{area}</p>
-                            </div>
-                          ))}
-                        </div>
-                      </CardBody>
-                    </Card>
-
-                    {/* Coaching Recommendations */}
-                    <Card variant="bordered">
-                      <CardHeader title="Coaching Recommendations" />
-                      <CardBody>
-                        <div className="space-y-4">
-                          {analysis.coachingRecommendations.map((rec, idx) => (
-                            <div
-                              key={idx}
-                              className="border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow"
-                            >
-                              <div className="flex items-start justify-between mb-2">
-                                <h4 className="font-semibold text-gray-900">{rec.title}</h4>
-                                <Badge
-                                  variant={
-                                    rec.priority === 'high'
-                                      ? 'error'
-                                      : rec.priority === 'medium'
-                                      ? 'warning'
-                                      : 'default'
-                                  }
-                                  size="sm"
-                                >
-                                  {rec.priority}
-                                </Badge>
-                              </div>
-                              <p className="text-gray-600 text-sm">{rec.description}</p>
-                            </div>
-                          ))}
-                        </div>
-                      </CardBody>
-                    </Card>
-
-                    {/* Training Resources */}
-                    <Card variant="bordered">
-                      <CardHeader title="Training Resources" />
-                      <CardBody>
-                        <div className="space-y-3">
-                          {analysis.trainingResources.map((resource, idx) => (
-                            <a
-                              key={idx}
-                              href={resource.url}
-                              className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-brand-blue transition-all group"
-                            >
-                              <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-gradient-to-br from-brand-cyan to-brand-blue rounded-lg flex items-center justify-center">
-                                  <FileText className="w-5 h-5 text-white" />
-                                </div>
-                                <div>
-                                  <p className="font-medium text-gray-900 group-hover:text-brand-blue">
-                                    {resource.title}
-                                  </p>
-                                  <p className="text-sm text-gray-600">{resource.type}</p>
-                                </div>
-                              </div>
-                              <ExternalLink className="w-5 h-5 text-gray-400 group-hover:text-brand-blue" />
-                            </a>
-                          ))}
-                        </div>
-                      </CardBody>
-                    </Card>
-                  </div>
-                )}
-
-                {/* Activity Tab */}
-                {activeTab === 'activity' && (
-                  <div className="space-y-4">
+            {/* Timeline Tab */}
+            {activeTab === 'timeline' && (
+              <div className="space-y-4">
                     <Card variant="bordered">
                       <CardHeader title="Recording Timeline" />
                       <CardBody>
@@ -991,106 +1038,14 @@ export default function RecordingDetailPage() {
                     </Card>
                   </div>
                 )}
-              </div>
-            </Card>
           </div>
 
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Quick Stats */}
-            <Card variant="elevated">
-              <CardHeader title="Quick Stats" />
-              <CardBody>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-gray-600">
-                      <Clock size={18} />
-                      <span className="text-sm">Duration</span>
-                    </div>
-                    <span className="font-semibold text-gray-900">
-                      {formatDuration(recording.duration)}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-gray-600">
-                      <TrendingUp size={18} />
-                      <span className="text-sm">Score</span>
-                    </div>
-                    <span className="font-semibold text-gray-900">{analysis.overallScore}/100</span>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-gray-600">
-                      <Users size={18} />
-                      <span className="text-sm">Speakers</span>
-                    </div>
-                    <span className="font-semibold text-gray-900">
-                      {recording.metadata?.participants?.length || 0}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-gray-600">
-                      <MessageSquare size={18} />
-                      <span className="text-sm">Word Count</span>
-                    </div>
-                    <span className="font-semibold text-gray-900">~450</span>
-                  </div>
-                </div>
-              </CardBody>
-            </Card>
-
-            {/* Related Recordings */}
-            <Card variant="elevated">
-              <CardHeader title="Related Recordings" />
-              <CardBody>
-                <div className="space-y-3">
-                  {MOCK_RELATED_RECORDINGS.map((rec) => (
-                    <Link
-                      key={rec.id}
-                      to={`/recordings/${rec.id}`}
-                      className="block p-3 border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-brand-blue transition-all group"
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <h4 className="font-medium text-gray-900 text-sm group-hover:text-brand-blue line-clamp-2">
-                          {rec.title}
-                        </h4>
-                        <Badge variant="info" size="sm">
-                          {rec.score}
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-gray-600">
-                        {new Date(rec.date).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                        })}
-                      </p>
-                    </Link>
-                  ))}
-                </div>
-              </CardBody>
-            </Card>
-
-            {/* Customer History Link */}
-            <Card variant="bordered" className="bg-gradient-to-br from-brand-cyan/10 to-brand-blue/10 border-brand-blue/20">
-              <CardBody>
-                <div className="text-center">
-                  <User className="w-12 h-12 text-brand-blue mx-auto mb-3" />
-                  <h3 className="font-semibold text-gray-900 mb-2">Customer History</h3>
-                  <p className="text-sm text-gray-600 mb-4">
-                    View all recordings for {recording.customer.name}
-                  </p>
-                  <Link to={`/customers/${recording.customer.id}`}>
-                    <Button variant="primary" size="sm" fullWidth>
-                      View Customer Profile
-                      <ExternalLink size={14} />
-                    </Button>
-                  </Link>
-                </div>
-              </CardBody>
-            </Card>
-          </div>
+          {/* Sidebar - Only show for Conversation tab */}
+          {activeTab === 'conversation' && (
+            <div className="space-y-6">
+              <AnalyticsSidebar analytics={analyticsData} />
+            </div>
+          )}
         </div>
       </div>
     </PageLayout>

@@ -1,51 +1,19 @@
-import axios from 'axios'
 import { User, SignupData } from '../contexts/AuthContext'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api'
-
-// Create axios instance with default config
-const api = axios.create({
-  baseURL: API_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-})
-
-// Add token to requests if it exists
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token')
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
-    }
-    return config
-  },
-  (error) => {
-    return Promise.reject(error)
-  }
-)
-
-// Handle token expiration
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      // Token expired or invalid
-      localStorage.removeItem('token')
-      window.location.href = '/'
-    }
-    return Promise.reject(error)
-  }
-)
-
 export interface LoginResponse {
-  user: User
-  token: string
+  success: boolean
+  data: {
+    user: User
+    token: string
+  }
 }
 
 export interface SignupResponse {
-  user: User
-  token: string
+  success: boolean
+  data: {
+    user: User
+    token: string
+  }
 }
 
 export interface ForgotPasswordResponse {
@@ -56,49 +24,36 @@ export interface ResetPasswordResponse {
   message: string
 }
 
-// Authentication API calls
+// TODO: Implement authentication service
 export const authService = {
-  // Login
   async login(email: string, password: string): Promise<LoginResponse> {
-    const response = await api.post<LoginResponse>('/auth/login', {
-      email,
-      password,
-    })
-    return response.data
+    // TODO: Implement login
+    throw new Error('Not implemented')
   },
 
-  // Signup
   async signup(data: SignupData): Promise<SignupResponse> {
-    const response = await api.post<SignupResponse>('/auth/signup', data)
-    return response.data
+    // TODO: Implement signup
+    throw new Error('Not implemented')
   },
 
-  // Forgot password
   async forgotPassword(email: string): Promise<ForgotPasswordResponse> {
-    const response = await api.post<ForgotPasswordResponse>('/auth/forgot-password', {
-      email,
-    })
-    return response.data
+    // TODO: Implement forgot password
+    throw new Error('Not implemented')
   },
 
-  // Reset password
   async resetPassword(token: string, password: string): Promise<ResetPasswordResponse> {
-    const response = await api.post<ResetPasswordResponse>('/auth/reset-password', {
-      token,
-      password,
-    })
-    return response.data
+    // TODO: Implement reset password
+    throw new Error('Not implemented')
   },
 
-  // Verify token and get user
   async verifyToken(): Promise<User> {
-    const response = await api.get<User>('/auth/me')
-    return response.data
+    // TODO: Implement token verification
+    throw new Error('Not implemented')
   },
 
-  // Logout
   async logout(): Promise<void> {
-    await api.post('/auth/logout')
+    // TODO: Implement logout
+    throw new Error('Not implemented')
   },
 }
 

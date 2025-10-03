@@ -4,26 +4,16 @@
   "description": "FieldLink v5 - Complete field service management platform",
   "private": true,
   "scripts": {
-    "install:all": "npm install && npm run install:frontend && npm run install:backend && npm run install:mobile",
+    "install:all": "npm install && npm run install:frontend",
     "install:frontend": "cd frontend && npm install",
-    "install:backend": "cd backend && npm install",
-    "install:mobile": "cd mobile/FieldLinkMobile && npm install",
-    "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
+    "dev": "cd frontend && npm run dev",
     "dev:frontend": "cd frontend && npm run dev",
-    "dev:backend": "cd backend && npm run dev",
-    "dev:mobile": "cd mobile/FieldLinkMobile && npm start",
-    "build": "npm run build:frontend && npm run build:backend",
+    "build": "cd frontend && npm run build",
     "build:frontend": "cd frontend && npm run build",
-    "build:backend": "cd backend && npm run build",
-    "test": "npm run test:frontend && npm run test:backend",
+    "test": "cd frontend && npm test",
     "test:frontend": "cd frontend && npm test",
-    "test:backend": "cd backend && npm test",
-    "lint": "npm run lint:frontend && npm run lint:backend",
-    "lint:frontend": "cd frontend && npm run lint",
-    "lint:backend": "cd backend && npm run lint"
-  },
-  "devDependencies": {
-    "concurrently": "^8.2.2"
+    "lint": "cd frontend && npm run lint",
+    "lint:frontend": "cd frontend && npm run lint"
   },
   "engines": {
     "node": ">=18.0.0",

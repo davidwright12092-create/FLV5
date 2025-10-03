@@ -274,6 +274,9 @@ export default function RecordingList({
                       Duration
                     </th>
                     <th className="text-left py-3 px-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      Size
+                    </th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">
                       Status
                     </th>
                     <th className="text-left py-3 px-4 text-xs font-semibold text-gray-600 uppercase tracking-wider">
@@ -312,6 +315,9 @@ export default function RecordingList({
                           <Clock className="w-4 h-4 text-gray-400" />
                           <span>{recording.duration}</span>
                         </div>
+                      </td>
+                      <td className="py-4 px-4">
+                        <span className="text-sm text-gray-600">{recording.fileSize || 'N/A'}</span>
                       </td>
                       <td className="py-4 px-4">{getStatusBadge(recording.status)}</td>
                       <td className="py-4 px-4">

@@ -1,7 +1,9 @@
 import React, { useState, useRef, DragEvent, ChangeEvent } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import Card, { CardHeader, CardBody, CardFooter } from '../ui/Card'
 import Button from '../ui/Button'
 import Input from '../ui/Input'
+import api from '../../services/api'
 import {
   Upload,
   File,
@@ -27,6 +29,7 @@ export interface RecordingFile {
   status: 'pending' | 'uploading' | 'success' | 'error'
   progress: number
   error?: string
+  recordingId?: string // Backend recording ID
 }
 
 export interface RecordingMetadata {
@@ -89,6 +92,7 @@ const RecordingUpload: React.FC<RecordingUploadProps> = ({
   maxFileSize = DEFAULT_MAX_FILE_SIZE,
   maxFiles = DEFAULT_MAX_FILES,
 }) => {
+  const queryClient = useQueryClient()
   const [files, setFiles] = useState<RecordingFile[]>([])
   const [isDragging, setIsDragging] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
@@ -166,38 +170,57 @@ const RecordingUpload: React.FC<RecordingUploadProps> = ({
     setFiles((prev) => prev.filter((f) => f.id !== id))
   }
 
-  // Simulate file upload with progress
-  const simulateUpload = (fileId: string): Promise<void> => {
-    return new Promise((resolve) => {
-      let progress = 0
-      const interval = setInterval(() => {
-        progress += Math.random() * 15 + 5
+  // Real file upload with progress tracking
+  const uploadFile = async (recordingFile: RecordingFile): Promise<void> => {
+    try {
+      const formData = new FormData()
+      formData.append('file', recordingFile.file)
+      formData.append('title', metadata.title || recordingFile.name)
 
-        setFiles((prev) =>
-          prev.map((f) =>
-            f.id === fileId
-              ? {
-                  ...f,
-                  status: 'uploading',
-                  progress: Math.min(Math.round(progress), 100),
-                }
-              : f
-          )
-        )
+      const response = await api.post('/recordings/upload', formData, {
+        onUploadProgress: (progressEvent) => {
+          const progress = progressEvent.total
+            ? Math.round((progressEvent.loaded * 100) / progressEvent.total)
+            : 0
 
-        if (progress >= 100) {
-          clearInterval(interval)
           setFiles((prev) =>
             prev.map((f) =>
-              f.id === fileId
-                ? { ...f, status: 'success', progress: 100 }
+              f.id === recordingFile.id
+                ? {
+                    ...f,
+                    status: 'uploading',
+                    progress,
+                  }
                 : f
             )
           )
-          resolve()
-        }
-      }, 200)
-    })
+        },
+      })
+
+      if (response.data.success) {
+        const backendRecordingId = response.data.data?.id
+        setFiles((prev) =>
+          prev.map((f) =>
+            f.id === recordingFile.id
+              ? { ...f, status: 'success', progress: 100, recordingId: backendRecordingId }
+              : f
+          )
+        )
+      }
+    } catch (error: any) {
+      console.error('Upload error:', error)
+      setFiles((prev) =>
+        prev.map((f) =>
+          f.id === recordingFile.id
+            ? {
+                ...f,
+                status: 'error',
+                error: error.response?.data?.message || 'Upload failed',
+              }
+            : f
+        )
+      )
+    }
   }
 
   // Handle upload
@@ -217,13 +240,16 @@ const RecordingUpload: React.FC<RecordingUploadProps> = ({
     setIsUploading(true)
     setUploadComplete(false)
 
-    // Upload files in batches
+    // Upload files sequentially
     for (const file of validFiles) {
-      await simulateUpload(file.id)
+      await uploadFile(file)
     }
 
     setIsUploading(false)
     setUploadComplete(true)
+
+    // Invalidate recordings cache to trigger refetch
+    queryClient.invalidateQueries({ queryKey: ['recordings'] })
 
     // Call completion callback
     if (onUploadComplete) {

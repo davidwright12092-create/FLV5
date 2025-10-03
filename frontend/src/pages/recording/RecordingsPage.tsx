@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Mic, Upload, ListMusic, Plus, TrendingUp, CheckCircle2, Loader2, BarChart3 } from 'lucide-react'
+import { Mic, Upload, ListMusic, Plus, TrendingUp, CheckCircle2, Clock, BarChart3 } from 'lucide-react'
 import { PageLayout } from '../../components/layout'
 import AudioRecorder from '../../components/recording/AudioRecorder'
 import RecordingList, { Recording } from '../../components/recording/RecordingList'
@@ -8,6 +8,7 @@ import RecordingUpload from '../../components/recording/RecordingUpload'
 import MetricsCard from '../../components/dashboard/MetricsCard'
 import Button from '../../components/ui/Button'
 import toast from 'react-hot-toast'
+import { useRecordings } from '../../hooks/useRecordings'
 
 type TabType = 'all' | 'record' | 'upload'
 
@@ -16,11 +17,33 @@ export default function RecordingsPage() {
   const [selectedRecording, setSelectedRecording] = useState<Recording | null>(null)
   const [showPlayer, setShowPlayer] = useState(false)
 
-  // No mock data - will fetch from API
+  // Fetch recordings from API
+  const { data: recordingsResponse, isLoading, error } = useRecordings()
+
+  // Backend returns { success: true, data: [...recordings...] }
+  const backendRecordings = recordingsResponse?.data || []
+
+  // Transform backend data to match frontend interface
+  const recordings: Recording[] = backendRecordings.map((rec: any) => {
+    const fileSizeMB = rec.fileSize ? (rec.fileSize / (1024 * 1024)).toFixed(2) : '0.00'
+    return {
+      id: rec.id,
+      title: rec.title,
+      customer: rec.user ? `${rec.user.firstName} ${rec.user.lastName}` : 'Unknown',
+      date: new Date(rec.createdAt).toLocaleDateString(),
+      dateTimestamp: new Date(rec.createdAt).getTime(),
+      duration: `${Math.floor(rec.duration / 60)}:${String(rec.duration % 60).padStart(2, '0')}`,
+      durationSeconds: rec.duration,
+      fileSize: `${fileSizeMB} MB`,
+      status: rec.status.toLowerCase() as any,
+      category: 'Service Call',
+    }
+  })
+
   const statistics = {
-    total: 0,
-    processing: 0,
-    completed: 0,
+    total: recordings.length,
+    processing: recordings.filter(r => r.status === 'processing').length,
+    completed: recordings.filter(r => r.status === 'completed').length,
     averageScore: 0,
   }
 
@@ -67,6 +90,16 @@ export default function RecordingsPage() {
     setSelectedRecording(null)
   }
 
+  if (isLoading) {
+    return (
+      <PageLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">Loading recordings...</div>
+        </div>
+      </PageLayout>
+    )
+  }
+
   return (
     <PageLayout>
       <div className="space-y-6">
@@ -111,7 +144,7 @@ export default function RecordingsPage() {
           <MetricsCard
             title="Processing"
             value={statistics.processing.toString()}
-            icon={<Loader2 className="w-6 h-6 text-warning-600 animate-spin" />}
+            icon={<Clock className="w-6 h-6 text-warning-600" />}
             subtitle="Currently analyzing"
             color="yellow"
           />
@@ -180,6 +213,7 @@ export default function RecordingsPage() {
         <div className="mt-6">
           {activeTab === 'all' && (
             <RecordingList
+              recordings={recordings}
               onPlay={handlePlay}
               onDownload={handleDownload}
               onDelete={handleDelete}

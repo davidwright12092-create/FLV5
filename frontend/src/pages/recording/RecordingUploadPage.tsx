@@ -1,24 +1,18 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Upload,
   FileAudio,
   CheckCircle,
-  AlertCircle,
   HelpCircle,
   ChevronRight,
   Home,
   Music,
   Clock,
-  Trash2,
   Eye,
   ChevronDown,
   ChevronUp,
-  Sparkles,
   Info,
-  FileCheck,
-  TrendingUp,
-  Zap,
-  Shield,
 } from 'lucide-react'
 import { PageLayout } from '../../components/layout'
 import RecordingUpload, {
@@ -47,58 +41,12 @@ interface FAQItem {
 }
 
 const RecordingUploadPage = () => {
+  const navigate = useNavigate()
+
   // State management
   const [uploadSuccess, setUploadSuccess] = useState(false)
   const [uploadedFiles, setUploadedFiles] = useState<RecordingFile[]>([])
   const [uploadedMetadata, setUploadedMetadata] = useState<RecordingMetadata | null>(null)
-  const [recentUploads, setRecentUploads] = useState<UploadedRecording[]>([
-    {
-      id: '1',
-      title: 'Customer Support Call - John Smith',
-      fileName: 'support_call_001.mp3',
-      fileSize: 15.2 * 1024 * 1024,
-      uploadedAt: '2024-01-15T10:30:00',
-      status: 'completed',
-      progress: 100,
-    },
-    {
-      id: '2',
-      title: 'Field Service Assessment',
-      fileName: 'field_assessment_042.wav',
-      fileSize: 28.5 * 1024 * 1024,
-      uploadedAt: '2024-01-15T09:15:00',
-      status: 'processing',
-      progress: 67,
-      estimatedTime: '2 minutes',
-    },
-    {
-      id: '3',
-      title: 'Product Demo Recording',
-      fileName: 'demo_recording.m4a',
-      fileSize: 12.8 * 1024 * 1024,
-      uploadedAt: '2024-01-15T08:45:00',
-      status: 'completed',
-      progress: 100,
-    },
-    {
-      id: '4',
-      title: 'Training Session Audio',
-      fileName: 'training_jan_14.ogg',
-      fileSize: 45.3 * 1024 * 1024,
-      uploadedAt: '2024-01-14T16:20:00',
-      status: 'completed',
-      progress: 100,
-    },
-    {
-      id: '5',
-      title: 'Client Meeting Notes',
-      fileName: 'meeting_notes_001.mp3',
-      fileSize: 8.9 * 1024 * 1024,
-      uploadedAt: '2024-01-14T14:10:00',
-      status: 'failed',
-      progress: 0,
-    },
-  ])
 
   const [faqItems, setFaqItems] = useState<FAQItem[]>([
     {
@@ -164,22 +112,6 @@ const RecordingUploadPage = () => {
     setUploadedMetadata(metadata)
     setUploadSuccess(true)
 
-    // Add to recent uploads
-    const newUploads: UploadedRecording[] = files
-      .filter((f) => f.status === 'success')
-      .map((file) => ({
-        id: file.id,
-        title: metadata.title,
-        fileName: file.name,
-        fileSize: file.size,
-        uploadedAt: new Date().toISOString(),
-        status: 'processing' as const,
-        progress: 15,
-        estimatedTime: `${Math.ceil(file.size / (1024 * 1024) / 2)} minutes`,
-      }))
-
-    setRecentUploads([...newUploads, ...recentUploads].slice(0, 5))
-
     // Scroll to success message
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -199,45 +131,6 @@ const RecordingUploadPage = () => {
         isOpen: i === index ? !item.isOpen : item.isOpen,
       }))
     )
-  }
-
-  // Handle recent upload actions
-  const handleViewRecording = (id: string) => {
-    console.log('View recording:', id)
-    // Navigate to recording detail page
-  }
-
-  const handleDeleteRecording = (id: string) => {
-    if (confirm('Are you sure you want to delete this recording?')) {
-      setRecentUploads(recentUploads.filter((r) => r.id !== id))
-    }
-  }
-
-  // Get status badge
-  const getStatusBadge = (status: UploadedRecording['status']) => {
-    switch (status) {
-      case 'processing':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-gradient-to-r from-brand-blue/10 to-brand-cyan/10 text-brand-blue border border-brand-blue/20">
-            <Clock className="w-3 h-3 animate-pulse" />
-            Processing
-          </span>
-        )
-      case 'completed':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-gradient-to-r from-success-50 to-success-100 text-success-700 border border-success-200">
-            <CheckCircle className="w-3 h-3" />
-            Completed
-          </span>
-        )
-      case 'failed':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-gradient-to-r from-error-50 to-error-100 text-error-700 border border-error-200">
-            <AlertCircle className="w-3 h-3" />
-            Failed
-          </span>
-        )
-    }
   }
 
   return (
@@ -371,14 +264,28 @@ const RecordingUploadPage = () => {
 
               {/* Action Buttons */}
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-                <Button variant="primary" size="lg" onClick={handleUploadMore}>
-                  <Upload className="w-5 h-5" />
-                  Upload More Files
+                <Button
+                  variant="primary"
+                  size="lg"
+                  onClick={() => {
+                    console.log('Uploaded files:', uploadedFiles)
+                    const recordingId = uploadedFiles.find(f => f.recordingId)?.recordingId
+                    console.log('Recording ID:', recordingId)
+                    if (recordingId) {
+                      console.log('Navigating to:', `/recording/${recordingId}`)
+                      navigate(`/recording/${recordingId}`)
+                    } else {
+                      alert('Recording ID not found. Please try uploading again.')
+                    }
+                  }}
+                >
+                  <Eye className="w-5 h-5" />
+                  View Recording Details
                 </Button>
                 <Button
                   variant="outline"
                   size="lg"
-                  onClick={() => console.log('View all recordings')}
+                  onClick={() => navigate('/recordings')}
                 >
                   <Music className="w-5 h-5" />
                   View All Recordings
@@ -386,10 +293,10 @@ const RecordingUploadPage = () => {
                 <Button
                   variant="ghost"
                   size="lg"
-                  onClick={() => console.log('View this recording')}
+                  onClick={handleUploadMore}
                 >
-                  <Eye className="w-5 h-5" />
-                  View This Recording
+                  <Upload className="w-5 h-5" />
+                  Upload More Files
                 </Button>
               </div>
             </div>
@@ -402,249 +309,6 @@ const RecordingUploadPage = () => {
             <RecordingUpload onUploadComplete={handleUploadComplete} />
           </div>
         )}
-
-        {/* Upload Guidelines */}
-        <Card variant="elevated" padding="lg" rounded="3xl">
-          <CardHeader
-            title="Upload Guidelines"
-            subtitle="Best practices for optimal results"
-          />
-          <CardBody>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Supported Formats */}
-              <div className="p-6 rounded-2xl bg-gradient-to-br from-brand-cyan/5 to-brand-blue/5 border border-brand-cyan/20">
-                <div className="flex items-start gap-4">
-                  <div className="p-3 rounded-xl bg-gradient-to-br from-brand-cyan to-brand-blue">
-                    <FileCheck className="w-6 h-6 text-white" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-gray-900 mb-2">Supported Formats</h3>
-                    <ul className="space-y-2 text-sm text-gray-600">
-                      <li className="flex items-center gap-2">
-                        <CheckCircle className="w-4 h-4 text-success-600" />
-                        <span>
-                          <strong>MP3</strong> - Most common, good compression
-                        </span>
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle className="w-4 h-4 text-success-600" />
-                        <span>
-                          <strong>WAV</strong> - Uncompressed, highest quality
-                        </span>
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle className="w-4 h-4 text-success-600" />
-                        <span>
-                          <strong>M4A</strong> - Apple format, excellent quality
-                        </span>
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <CheckCircle className="w-4 h-4 text-success-600" />
-                        <span>
-                          <strong>OGG</strong> - Open format, good compression
-                        </span>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-
-              {/* File Size */}
-              <div className="p-6 rounded-2xl bg-gradient-to-br from-brand-purple/5 to-brand-pink/5 border border-brand-purple/20">
-                <div className="flex items-start gap-4">
-                  <div className="p-3 rounded-xl bg-gradient-to-br from-brand-purple to-brand-pink">
-                    <TrendingUp className="w-6 h-6 text-white" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-gray-900 mb-2">Maximum File Size</h3>
-                    <ul className="space-y-2 text-sm text-gray-600">
-                      <li className="flex items-center gap-2">
-                        <Info className="w-4 h-4 text-brand-purple" />
-                        <span>Single file: Up to 100MB</span>
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <Info className="w-4 h-4 text-brand-purple" />
-                        <span>Multiple files: Up to 10 files at once</span>
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <Info className="w-4 h-4 text-brand-purple" />
-                        <span>Typical 1-hour recording: 30-60MB</span>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-
-              {/* Audio Quality */}
-              <div className="p-6 rounded-2xl bg-gradient-to-br from-brand-blue/5 to-brand-purple/5 border border-brand-blue/20">
-                <div className="flex items-start gap-4">
-                  <div className="p-3 rounded-xl bg-gradient-to-br from-brand-blue to-brand-purple">
-                    <Sparkles className="w-6 h-6 text-white" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-gray-900 mb-2">
-                      Best Practices for Quality
-                    </h3>
-                    <ul className="space-y-2 text-sm text-gray-600">
-                      <li className="flex items-center gap-2">
-                        <Shield className="w-4 h-4 text-brand-blue" />
-                        <span>Use clear audio with minimal background noise</span>
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <Shield className="w-4 h-4 text-brand-blue" />
-                        <span>Record at minimum 16kHz sample rate</span>
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <Shield className="w-4 h-4 text-brand-blue" />
-                        <span>Ensure speakers are clearly audible</span>
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <Shield className="w-4 h-4 text-brand-blue" />
-                        <span>Avoid multiple overlapping conversations</span>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-
-              {/* Processing Time */}
-              <div className="p-6 rounded-2xl bg-gradient-to-br from-brand-orange/5 to-brand-yellow/5 border border-brand-orange/20">
-                <div className="flex items-start gap-4">
-                  <div className="p-3 rounded-xl bg-gradient-to-br from-brand-orange to-brand-yellow">
-                    <Zap className="w-6 h-6 text-white" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-gray-900 mb-2">
-                      Processing Time Estimates
-                    </h3>
-                    <ul className="space-y-2 text-sm text-gray-600">
-                      <li className="flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-brand-orange" />
-                        <span>5-minute audio: ~30 seconds</span>
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-brand-orange" />
-                        <span>15-minute audio: ~1-2 minutes</span>
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-brand-orange" />
-                        <span>30-minute audio: ~2-3 minutes</span>
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-brand-orange" />
-                        <span>1-hour audio: ~4-5 minutes</span>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </CardBody>
-        </Card>
-
-        {/* Recent Uploads */}
-        <Card variant="elevated" padding="lg" rounded="3xl">
-          <CardHeader
-            title="Recent Uploads"
-            subtitle="Your last 5 uploaded recordings"
-          />
-          <CardBody>
-            {recentUploads.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-gray-100 to-gray-200 mb-4">
-                  <FileAudio className="w-8 h-8 text-gray-400" />
-                </div>
-                <p className="text-gray-600">No recent uploads</p>
-                <p className="text-sm text-gray-500 mt-1">
-                  Your uploaded recordings will appear here
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {recentUploads.map((recording) => (
-                  <div
-                    key={recording.id}
-                    className="p-4 rounded-xl bg-gradient-to-r from-gray-50 to-primary-50/20 border border-gray-200 hover:border-brand-cyan/40 transition-all duration-200 hover:shadow-md"
-                  >
-                    <div className="flex items-center gap-4">
-                      {/* File Icon */}
-                      <div className="flex-shrink-0">
-                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-cyan to-brand-blue flex items-center justify-center">
-                          <FileAudio className="w-6 h-6 text-white" />
-                        </div>
-                      </div>
-
-                      {/* Recording Details */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-3 mb-2">
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-semibold text-gray-900 truncate">
-                              {recording.title}
-                            </h4>
-                            <p className="text-sm text-gray-600 truncate">
-                              {recording.fileName}
-                            </p>
-                          </div>
-                          {getStatusBadge(recording.status)}
-                        </div>
-
-                        <div className="flex items-center gap-4 text-xs text-gray-500">
-                          <span>{formatFileSize(recording.fileSize)}</span>
-                          <span>•</span>
-                          <span>{formatDate(recording.uploadedAt)}</span>
-                          {recording.estimatedTime && recording.status === 'processing' && (
-                            <>
-                              <span>•</span>
-                              <span className="text-brand-blue font-medium">
-                                {recording.estimatedTime} remaining
-                              </span>
-                            </>
-                          )}
-                        </div>
-
-                        {/* Progress Bar for Processing */}
-                        {recording.status === 'processing' && (
-                          <div className="mt-3">
-                            <div className="flex items-center justify-between text-xs text-gray-600 mb-1">
-                              <span>Processing...</span>
-                              <span>{recording.progress}%</span>
-                            </div>
-                            <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                              <div
-                                className="h-full bg-gradient-to-r from-brand-cyan via-brand-blue to-brand-purple transition-all duration-500"
-                                style={{ width: `${recording.progress}%` }}
-                              />
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Action Buttons */}
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        {recording.status === 'completed' && (
-                          <button
-                            onClick={() => handleViewRecording(recording.id)}
-                            className="p-2 rounded-lg text-brand-blue hover:bg-brand-blue/10 transition-colors"
-                            title="View recording"
-                          >
-                            <Eye className="w-5 h-5" />
-                          </button>
-                        )}
-                        <button
-                          onClick={() => handleDeleteRecording(recording.id)}
-                          className="p-2 rounded-lg text-gray-400 hover:text-error-600 hover:bg-error-50 transition-colors"
-                          title="Delete recording"
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardBody>
-        </Card>
 
         {/* FAQ Section */}
         <Card variant="elevated" padding="lg" rounded="3xl">

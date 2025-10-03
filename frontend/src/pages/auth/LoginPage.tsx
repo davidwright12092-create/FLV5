@@ -18,7 +18,7 @@ type LoginFormData = z.infer<typeof loginSchema>
 
 export default function LoginPage() {
   const navigate = useNavigate()
-  const { loginAsDemo } = useAuth()
+  const { login, bypassAuth } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
   const [apiError, setApiError] = useState<string | null>(null)
 
@@ -35,14 +35,12 @@ export default function LoginPage() {
       setIsLoading(true)
       setApiError(null)
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500))
+      // Call the actual login function from AuthContext
+      await login(data.email, data.password)
 
-      // TODO: Replace with actual API call
-      localStorage.setItem('token', 'demo-token')
-      navigate('/dashboard')
+      // Navigation happens inside login() function
     } catch (error) {
-      setApiError('Invalid email or password. Please try again.')
+      setApiError(error instanceof Error ? error.message : 'Invalid email or password. Please try again.')
     } finally {
       setIsLoading(false)
     }
@@ -160,7 +158,7 @@ export default function LoginPage() {
                   <div className="w-full border-t border-gray-200"></div>
                 </div>
                 <div className="relative flex justify-center text-sm">
-                  <span className="px-4 bg-white text-gray-500">Development Mode</span>
+                  <span className="px-4 bg-white text-gray-500">Development</span>
                 </div>
               </div>
 
@@ -169,11 +167,11 @@ export default function LoginPage() {
                 variant="outline"
                 size="lg"
                 fullWidth
-                onClick={loginAsDemo}
+                onClick={bypassAuth}
                 className="border-2 border-brand-cyan text-brand-cyan hover:bg-brand-cyan/5"
               >
                 <Zap className="w-5 h-5 mr-2" />
-                Demo Login (Skip Auth)
+                Skip Login (Dev Mode)
               </Button>
             </form>
 

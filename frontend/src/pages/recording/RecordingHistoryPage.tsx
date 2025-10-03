@@ -331,7 +331,7 @@ export default function RecordingHistoryPage() {
           <MetricsCard
             title="Processing"
             value={statistics.processing}
-            icon={<Loader2 className="w-6 h-6 text-warning-600 animate-spin" />}
+            icon={<Clock className="w-6 h-6 text-warning-600" />}
             subtitle="Currently analyzing"
             color="yellow"
           />
@@ -643,7 +643,7 @@ export default function RecordingHistoryPage() {
                               <CheckCircle2 className="w-5 h-5 text-success-600" />
                             )}
                             {recording.status === 'processing' && (
-                              <Loader2 className="w-5 h-5 text-warning-600 animate-spin" />
+                              <Clock className="w-5 h-5 text-warning-600" />
                             )}
                             {recording.status === 'failed' && (
                               <AlertCircle className="w-5 h-5 text-error-600" />

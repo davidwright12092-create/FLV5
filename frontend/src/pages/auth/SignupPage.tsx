@@ -1,22 +1,21 @@
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useNavigate, Link } from 'react-router-dom'
-import { Building2, Mail, Lock, User, Briefcase, Users as UsersIcon, AlertCircle } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Building2, Mail, Lock, User, AlertCircle } from 'lucide-react'
 import { useState } from 'react'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
+import { useAuth } from '../../hooks/useAuth'
 
 const signupSchema = z.object({
-  fullName: z.string().min(2, 'Full name must be at least 2 characters'),
+  firstName: z.string().min(2, 'First name must be at least 2 characters'),
+  lastName: z.string().min(2, 'Last name must be at least 2 characters'),
   email: z.string().email('Please enter a valid email address'),
   password: z.string().min(8, 'Password must be at least 8 characters')
     .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
     .regex(/[0-9]/, 'Password must contain at least one number'),
   confirmPassword: z.string(),
-  companyName: z.string().min(2, 'Company name must be at least 2 characters'),
-  industry: z.string().min(1, 'Please select an industry'),
-  companySize: z.string().min(1, 'Please select company size'),
   agreeToTerms: z.boolean().refine((val) => val === true, {
     message: 'You must agree to the terms and conditions',
   }),
@@ -28,7 +27,7 @@ const signupSchema = z.object({
 type SignupFormData = z.infer<typeof signupSchema>
 
 export default function SignupPage() {
-  const navigate = useNavigate()
+  const { signup } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
   const [apiError, setApiError] = useState<string | null>(null)
 
@@ -45,37 +44,18 @@ export default function SignupPage() {
       setIsLoading(true)
       setApiError(null)
 
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 2000))
-
-      // TODO: Replace with actual API call
-      console.log('Signup data:', data)
-      localStorage.setItem('token', 'demo-token')
-      navigate('/dashboard')
+      await signup({
+        email: data.email,
+        password: data.password,
+        firstName: data.firstName,
+        lastName: data.lastName,
+      })
     } catch (error) {
       setApiError('Failed to create account. Please try again.')
     } finally {
       setIsLoading(false)
     }
   }
-
-  const industries = [
-    'HVAC',
-    'Plumbing',
-    'Electrical',
-    'General Contracting',
-    'Landscaping',
-    'Roofing',
-    'Other',
-  ]
-
-  const companySizes = [
-    '1-10 employees',
-    '11-50 employees',
-    '51-200 employees',
-    '201-500 employees',
-    '500+ employees',
-  ]
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-cyan-50 via-blue-50 to-purple-50 flex">
@@ -150,15 +130,27 @@ export default function SignupPage() {
               <div>
                 <h3 className="text-sm font-semibold text-gray-900 mb-3">Personal Information</h3>
                 <div className="space-y-4">
-                  <Input
-                    label="Full Name"
-                    type="text"
-                    placeholder="John Doe"
-                    leftIcon={<User className="w-5 h-5" />}
-                    error={errors.fullName?.message}
-                    fullWidth
-                    {...register('fullName')}
-                  />
+                  <div className="grid grid-cols-2 gap-4">
+                    <Input
+                      label="First Name"
+                      type="text"
+                      placeholder="John"
+                      leftIcon={<User className="w-5 h-5" />}
+                      error={errors.firstName?.message}
+                      fullWidth
+                      {...register('firstName')}
+                    />
+
+                    <Input
+                      label="Last Name"
+                      type="text"
+                      placeholder="Doe"
+                      leftIcon={<User className="w-5 h-5" />}
+                      error={errors.lastName?.message}
+                      fullWidth
+                      {...register('lastName')}
+                    />
+                  </div>
 
                   <Input
                     label="Email Address"
@@ -190,76 +182,6 @@ export default function SignupPage() {
                     fullWidth
                     {...register('confirmPassword')}
                   />
-                </div>
-              </div>
-
-              {/* Company Information */}
-              <div className="pt-4 border-t border-gray-200">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">Company Information</h3>
-                <div className="space-y-4">
-                  <Input
-                    label="Company Name"
-                    type="text"
-                    placeholder="ACME Services Inc."
-                    leftIcon={<Building2 className="w-5 h-5" />}
-                    error={errors.companyName?.message}
-                    fullWidth
-                    {...register('companyName')}
-                  />
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Industry
-                    </label>
-                    <div className="relative">
-                      <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                      <select
-                        className={`w-full pl-11 pr-4 py-2.5 text-base border rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-0 ${
-                          errors.industry
-                            ? 'border-error-500 focus:border-error-500 focus:ring-error-200'
-                            : 'border-gray-300 focus:border-primary-500 focus:ring-primary-200'
-                        }`}
-                        {...register('industry')}
-                      >
-                        <option value="">Select industry</option>
-                        {industries.map((industry) => (
-                          <option key={industry} value={industry}>
-                            {industry}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    {errors.industry && (
-                      <p className="mt-1.5 text-sm text-error-600">{errors.industry.message}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Company Size
-                    </label>
-                    <div className="relative">
-                      <UsersIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                      <select
-                        className={`w-full pl-11 pr-4 py-2.5 text-base border rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-0 ${
-                          errors.companySize
-                            ? 'border-error-500 focus:border-error-500 focus:ring-error-200'
-                            : 'border-gray-300 focus:border-primary-500 focus:ring-primary-200'
-                        }`}
-                        {...register('companySize')}
-                      >
-                        <option value="">Select company size</option>
-                        {companySizes.map((size) => (
-                          <option key={size} value={size}>
-                            {size}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    {errors.companySize && (
-                      <p className="mt-1.5 text-sm text-error-600">{errors.companySize.message}</p>
-                    )}
-                  </div>
                 </div>
               </div>
 

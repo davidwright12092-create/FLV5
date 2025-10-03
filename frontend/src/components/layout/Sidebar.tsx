@@ -43,7 +43,6 @@ const mainNavItems: NavItem[] = [
   {
     name: 'Recordings',
     icon: Mic,
-    badge: 12,
     subItems: [
       { name: 'Overview', path: '/recordings', icon: LayoutGrid },
       { name: 'New Recording', path: '/recording/new', icon: Plus },

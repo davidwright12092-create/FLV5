@@ -1,13 +1,13 @@
 import { createContext, useState, useEffect, ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
+import authService from '../services/authService'
 
 export interface User {
   id: string
   email: string
-  fullName: string
-  companyName: string
-  role: 'admin' | 'manager' | 'user'
-  avatar?: string
+  firstName: string
+  lastName: string
+  fullName?: string
 }
 
 export interface AuthContextType {
@@ -16,18 +16,16 @@ export interface AuthContextType {
   isLoading: boolean
   login: (email: string, password: string) => Promise<void>
   signup: (data: SignupData) => Promise<void>
-  loginAsDemo: () => void
+  bypassAuth: () => void
   logout: () => void
   updateUser: (user: User) => void
 }
 
 export interface SignupData {
-  fullName: string
   email: string
   password: string
-  companyName: string
-  industry: string
-  companySize: string
+  firstName: string
+  lastName: string
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -48,20 +46,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const token = localStorage.getItem('token')
 
         if (token) {
-          // TODO: Replace with actual API call to validate token and get user data
-          // Simulate API call
-          await new Promise((resolve) => setTimeout(resolve, 500))
-
-          // Mock user data
-          const mockUser: User = {
-            id: '1',
-            email: 'john.doe@company.com',
-            fullName: 'John Doe',
-            companyName: 'ACME Services Inc.',
-            role: 'admin',
+          const userData = await authService.verifyToken()
+          const userWithFullName = {
+            ...userData,
+            fullName: `${userData.firstName} ${userData.lastName}`,
           }
-
-          setUser(mockUser)
+          setUser(userWithFullName)
         }
       } catch (error) {
         console.error('Auth check failed:', error)
@@ -76,22 +66,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const login = async (email: string, password: string) => {
     try {
-      // TODO: Replace with actual API call
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      const response = await authService.login(email, password)
 
-      // Mock response
-      const token = 'mock-jwt-token-' + Date.now()
-      const mockUser: User = {
-        id: '1',
-        email,
-        fullName: 'John Doe',
-        companyName: 'ACME Services Inc.',
-        role: 'admin',
+      // Extract user and token from response.data
+      const { user: userData, token } = response.data
+
+      // Add fullName for display purposes
+      const userWithFullName = {
+        ...userData,
+        fullName: `${userData.firstName} ${userData.lastName}`,
       }
 
       localStorage.setItem('token', token)
-      setUser(mockUser)
+      setUser(userWithFullName)
 
       // Navigate to dashboard after successful login
       navigate('/dashboard')
@@ -103,22 +90,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const signup = async (data: SignupData) => {
     try {
-      // TODO: Replace with actual API call
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500))
+      const response = await authService.signup(data)
 
-      // Mock response
-      const token = 'mock-jwt-token-' + Date.now()
-      const mockUser: User = {
-        id: '1',
-        email: data.email,
-        fullName: data.fullName,
-        companyName: data.companyName,
-        role: 'admin',
+      // Extract user and token from response.data
+      const { user: userData, token } = response.data
+
+      // Add fullName for display purposes
+      const userWithFullName = {
+        ...userData,
+        fullName: `${userData.firstName} ${userData.lastName}`,
       }
 
       localStorage.setItem('token', token)
-      setUser(mockUser)
+      setUser(userWithFullName)
 
       // Navigate to dashboard after successful signup
       navigate('/dashboard')
@@ -129,22 +113,31 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }
 
   const logout = () => {
-    localStorage.removeItem('token')
-    setUser(null)
-    navigate('/')
+    try {
+      localStorage.removeItem('token')
+      setUser(null)
+      // Use window.location for a hard redirect to ensure clean logout
+      window.location.href = '/'
+    } catch (error) {
+      console.error('Logout error:', error)
+      // Fallback to navigate if window.location fails
+      navigate('/')
+    }
   }
 
-  const loginAsDemo = () => {
-    const demoUser: User = {
-      id: 'demo-user',
-      email: 'demo@fieldlink.com',
-      fullName: 'Demo User',
-      companyName: 'FieldLink Demo',
-      role: 'admin',
+  const bypassAuth = () => {
+    // Create a mock user for development
+    const mockUser: User = {
+      id: 'dev-user-123',
+      email: 'dev@example.com',
+      firstName: 'Dev',
+      lastName: 'User',
+      fullName: 'Dev User',
     }
 
-    localStorage.setItem('token', 'demo-token')
-    setUser(demoUser)
+    // Set a mock token
+    localStorage.setItem('token', 'dev-bypass-token')
+    setUser(mockUser)
     navigate('/dashboard')
   }
 
@@ -158,7 +151,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     isLoading,
     login,
     signup,
-    loginAsDemo,
+    bypassAuth,
     logout,
     updateUser,
   }
